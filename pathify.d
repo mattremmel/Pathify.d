@@ -98,6 +98,7 @@ int main(string[] args) {
     }
     else if (args.length > 2) {
         writeln("ERROR: Too many arguments. See help for usage.");
+        return 1;
     }
 
     // Check that EXECUTABLE exists at path
