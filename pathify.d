@@ -37,7 +37,6 @@ Description:
 Usage:
     pathify [--name NAME] [--path PATH] EXECUTABLE
     pathify [--remove] [--path PATH] EXECUTABLE
-    pathify [--clean] [--path PATH]
     pathify [--version | -v]
     pathify [--help | -h]
 
@@ -48,7 +47,6 @@ Options:
     -n --name         an alternative name (alias) for the linked executable
     -p --path         the path at which to create the symlink
     -r --remove       remove all symlinks to the executable, at the configured PATH
-    -c --clean        remove all symlinks that don't point to anything, from the configured PATH
     -v --version      show the program version info
     -h --help         show this help information
     
@@ -60,7 +58,6 @@ string user_path = "/usr/local/bin";
 string name_alias = "";
 bool create_link = false;
 bool remove_link = false;
-bool clean_links = false;
 bool help_wanted = false;
 bool version_wanted = false;
 
@@ -74,7 +71,6 @@ int main(string[] args) {
 		"name|n", &name_alias,
         // create_link = !remove_link
         "remove|r", &remove_link,
-        "clean|c", &clean_links,
         "help|h", &help_wanted,
 		"version|v", &version_wanted
 	);
@@ -95,21 +91,6 @@ int main(string[] args) {
         return 0;
     }
 
-    // Clean symlinks
-    if (clean_links) {
-        foreach (DirEntry e; dirEntries(user_path, SpanMode.shallow, false)) {
-            if (e.isSymlink) {
-                string target_path = readLink(e.name);
-                if (!exists(target_path)) {
-                    writefln("Removing dead symlink: %s -> %s", e.name, target_path);
-                    remove(e.name);
-                }
-            }
-        }
-
-        return 0;
-    }
-    
     // Check that EXECUTABLE path argument exists
     if (args.length < 2) {
         writeln("ERROR: Executable must be provided. See help for usage.");
