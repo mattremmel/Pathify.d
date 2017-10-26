@@ -21,19 +21,11 @@
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import std.stdio: writeln, writefln;
+import std.file: symlink, exists, dirEntries, DirEntry, SpanMode, readLink, remove;
 import std.getopt: getopt, defaultGetoptPrinter;
-import std.file: exists;
-import std.path: absolutePath, baseName, buildPath, symlink;
+import std.path: absolutePath, baseName, buildPath;
+import std.stdio: writeln, writefln;
 
-
-// Configuration
-enum string LOCAL_PATH = "/usr/local/bin";
-
-// Program options
-bool help_wanted = false;
-bool version_wanted = false;
-string name_alias = "";
 
 // Documentation strings
 enum string version_info = "Pathify (0.1.0)";
@@ -43,7 +35,9 @@ Description:
     Add an executable to the users PATH by symbolically linking it
 
 Usage:
-    pathify [--name NAME | -n NAME] EXECUTABLE
+    pathify [--name NAME] [--path PATH] EXECUTABLE
+    pathify [--remove] [--force] [--path PATH] EXECUTABLE
+    pathify [--clean] [--force] [--path PATH]
     pathify [--version | -v]
     pathify [--help | -h]
 
@@ -52,11 +46,23 @@ Arguments:
 
 Options:
     -n --name       an alternative name (alias) for the linked executable
+    -p --path       the path at which to create the symlink
+    -r --remove     remove all symlinks to the executable, at the configured PATH
+    -c --clean      remove all symlinks that don't point to anything, from the configured PATH
     -v --version    show the program version info
     -h --help       show this help information
     
 Copyright © 2017 Matthew Remmel
 DISTRIBUTED UNDER MIT LICENSE";
+
+// Program options
+string user_path = "/usr/local/bin";
+string name_alias = "";
+bool create_link = false;
+bool remove_link = false;
+bool force_operation = false;
+bool help_wanted = false;
+bool version_wanted = false;
 
 
 int main(string[] args) {
@@ -64,10 +70,17 @@ int main(string[] args) {
     // Parse program options
 	auto program_options = getopt(
 		args,
+        "path|p", &user_path,
 		"name|n", &name_alias,
-		"version|v", &version_wanted,
-        "help|h", &help_wanted
+        // create_link = !remove_link
+        "remove|r", &remove_link,
+        "force|f", &force_operation,
+        "help|h", &help_wanted,
+		"version|v", &version_wanted
 	);
+
+    // Set create_link
+    create_link = !remove_link;
 
     // Display help if requested
 	if (help_wanted) {
@@ -92,20 +105,35 @@ int main(string[] args) {
     }
 
     // Check that EXECUTABLE exists at path
-    string executable_path = args[1];
+    string executable_path = args[1].absolutePath();
     if (!exists(executable_path)) {
         writefln("ERROR: No executable exists at path: %s", executable_path);
         return 1;
     }
 
-    // Create symlink in LOCAL_PATH
-    string full_path = executable_path.absolutePath();
-    string link_name = executable_path.baseName;
-    if (name_alias) link_name = name_alias;
-    string link_path = buildPath(LOCAL_PATH, link_name);
+    // Create symlink
+    if (create_link) {
+        string link_name = executable_path.baseName;
+        if (name_alias) link_name = name_alias;
+        string link_path = buildPath(user_path, link_name);
 
-    writefln("Creating symlink at %s", link_path);
-    symlink(full_path, link_path);
+        writefln("Creating symlink at %s", link_path);
+        symlink(executable_path, link_path);
+        return 0;
+    }
+
+    if (remove_link) {
+        foreach (DirEntry e; dirEntries(user_path, SpanMode.shallow, false)) {
+            if (e.isSymlink) {
+                string target_path = readLink(e.name);
+                if (target_path == executable_path) {
+                    remove(e.name);
+                }
+            }
+        }
+
+        return 0;
+    }
 
     return 0;
 }
