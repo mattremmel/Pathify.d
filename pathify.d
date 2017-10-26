@@ -36,8 +36,8 @@ Description:
 
 Usage:
     pathify [--name NAME] [--path PATH] EXECUTABLE
-    pathify [--remove] [--force] [--path PATH] EXECUTABLE
-    pathify [--clean] [--force] [--path PATH]
+    pathify [--remove] [--path PATH] EXECUTABLE
+    pathify [--clean] [--path PATH]
     pathify [--version | -v]
     pathify [--help | -h]
 
@@ -45,12 +45,12 @@ Arguments:
     EXECUTABLE      an executable to symbolically link on the users PATH
 
 Options:
-    -n --name       an alternative name (alias) for the linked executable
-    -p --path       the path at which to create the symlink
-    -r --remove     remove all symlinks to the executable, at the configured PATH
-    -c --clean      remove all symlinks that don't point to anything, from the configured PATH
-    -v --version    show the program version info
-    -h --help       show this help information
+    -n --name         an alternative name (alias) for the linked executable
+    -p --path         the path at which to create the symlink
+    -r --remove       remove all symlinks to the executable, at the configured PATH
+    -c --clean        remove all symlinks that don't point to anything, from the configured PATH
+    -v --version      show the program version info
+    -h --help         show this help information
     
 Copyright © 2017 Matthew Remmel
 DISTRIBUTED UNDER MIT LICENSE";
@@ -60,7 +60,7 @@ string user_path = "/usr/local/bin";
 string name_alias = "";
 bool create_link = false;
 bool remove_link = false;
-bool force_operation = false;
+bool clean_links = false;
 bool help_wanted = false;
 bool version_wanted = false;
 
@@ -74,7 +74,7 @@ int main(string[] args) {
 		"name|n", &name_alias,
         // create_link = !remove_link
         "remove|r", &remove_link,
-        "force|f", &force_operation,
+        "clean|c", &clean_links,
         "help|h", &help_wanted,
 		"version|v", &version_wanted
 	);
@@ -95,6 +95,21 @@ int main(string[] args) {
         return 0;
     }
 
+    // Clean symlinks
+    if (clean_links) {
+        foreach (DirEntry e; dirEntries(user_path, SpanMode.shallow, false)) {
+            if (e.isSymlink) {
+                string target_path = readLink(e.name);
+                if (!exists(target_path)) {
+                    writefln("Removing dead symlink: %s -> %s", e.name, target_path);
+                    remove(e.name);
+                }
+            }
+        }
+
+        return 0;
+    }
+    
     // Check that EXECUTABLE path argument exists
     if (args.length < 2) {
         writeln("ERROR: Executable must be provided. See help for usage.");
@@ -117,16 +132,18 @@ int main(string[] args) {
         if (name_alias) link_name = name_alias;
         string link_path = buildPath(user_path, link_name);
 
-        writefln("Creating symlink at %s", link_path);
+        writefln("Creating symlink at: %s", link_path);
         symlink(executable_path, link_path);
         return 0;
     }
 
+    // Remove symlinks
     if (remove_link) {
         foreach (DirEntry e; dirEntries(user_path, SpanMode.shallow, false)) {
             if (e.isSymlink) {
                 string target_path = readLink(e.name);
                 if (target_path == executable_path) {
+                    writefln("Removing symlink at: %s", e.name);
                     remove(e.name);
                 }
             }
