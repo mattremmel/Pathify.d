@@ -1,7 +1,7 @@
 #!/usr/bin/env rdmd
 
 //
-// Pathify.d
+// pathify.d
 //
 // Created by Matthew Remmel on 10/25/17.
 // Copyright © 2017 Matthew Remmel
